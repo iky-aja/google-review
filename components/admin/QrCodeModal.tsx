@@ -14,7 +14,14 @@ export default function QrCodeModal({ publicToken, isOpen, onClose }: QrCodeModa
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedNdef, setCopiedNdef] = useState(false);
 
-  const appUrl = typeof window !== "undefined" ? window.location.origin : "https://havetech.web.id";
+  const [appUrl, setAppUrl] = useState("https://havetech.web.id");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAppUrl(window.location.origin);
+    }
+  }, []);
+
   const cardUrl = `${appUrl}/c/${publicToken}`;
 
   useEffect(() => {

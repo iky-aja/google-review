@@ -25,9 +25,13 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
   const [selectedQrToken, setSelectedQrToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
-  const appUrl = typeof window !== "undefined" ? window.location.origin : "https://havetech.web.id";
+  const getDynamicAppUrl = () => {
+    if (typeof window !== "undefined") {
+      return window.location.origin;
+    }
+    return "https://havetech.web.id";
+  };
 
-  // Filter cards based on search string and status filter
   const filteredCards = cards.filter((card) => {
     const matchSearch =
       card.publicToken.toLowerCase().includes(search.toLowerCase()) ||
@@ -40,7 +44,7 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
   });
 
   const copyUrl = (token: string) => {
-    const url = `${appUrl}/c/${token}`;
+    const url = `${getDynamicAppUrl()}/c/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);
