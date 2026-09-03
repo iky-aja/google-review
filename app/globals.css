@@ -1,0 +1,84 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Color tokens */
+  --color-canvas: #0A0A0B;
+  --color-surface-1: #141416;
+  --color-surface-2: #1E1E21;
+  --color-gold: #D4AF37;
+  --color-gold-hover: #B89020;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #8A8A8E;
+  --color-destructive: #C73E3A;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Mono', monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-custom: 8px;
+  --radius-lg: 12px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Focus visible: gold ring */
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background: rgba(212, 175, 55, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333337;
+}
+
+/* Button press feedback per Design System */
+button:active, a:active {
+  transform: scale(0.98);
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}

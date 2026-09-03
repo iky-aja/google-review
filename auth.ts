@@ -1,0 +1,123 @@
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    }),
+    Credentials({
+      name: "Admin Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
+        try {
+          const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+          });
+
+          // Only allow admin accounts to login via credentials
+          if (!user || user.role !== "admin" || !user.passwordHash) return null;
+
+          const isValid = await bcrypt.compare(password, user.passwordHash);
+          if (!isValid) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (err) {
+          console.error("[auth] credentials authorize error:", err);
+          return null;
+        }
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async signIn({ user, account }) {
+      // Credentials provider: admin already verified in authorize(), just pass through
+      if (account?.provider === "credentials") return true;
+
+      // Google provider: only for owner accounts
+      if (!user.email) return false;
+
+      const googleId = account?.providerAccountId;
+      if (!googleId) return false;
+
+      const name = user.name || user.email.split("@")[0] || "Owner";
+
+      try {
+        const existing = await db.query.users.findFirst({
+          where: eq(users.email, user.email),
+        });
+
+        if (!existing) {
+          await db.insert(users).values({
+            email: user.email,
+            name: name,
+            googleId,
+            role: "owner",
+          });
+        } else if (!existing.googleId) {
+          await db.update(users)
+            .set({ googleId, updatedAt: new Date() })
+            .where(eq(users.email, user.email));
+        }
+        return true;
+      } catch (err) {
+        console.error("[auth] signIn error:", err);
+        return false;
+      }
+    },
+
+    async jwt({ token, user, account }) {
+      // On initial sign-in via Credentials, user object is returned from authorize()
+      if (account?.provider === "credentials" && user) {
+        token.id = user.id;
+        token.role = (user as { role?: string }).role ?? "admin";
+        return token;
+      }
+
+      // On initial sign-in via Google, look up DB record
+      if (account?.provider === "google" && token.email) {
+        try {
+          const dbUser = await db.query.users.findFirst({
+            where: eq(users.email, token.email),
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } catch (err) {
+          console.error("[auth] jwt lookup error:", err);
+        }
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = (token.id as string) ?? "";
+        session.user.role = (token.role as "owner" | "admin") ?? "owner";
+      }
+      return session;
+    },
+  },
+  pages: { signIn: "/login" },
+});
