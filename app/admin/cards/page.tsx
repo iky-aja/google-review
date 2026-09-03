@@ -1,18 +1,25 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { db } from "@/db";
 import { cards } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
+import AdminCardTable, { CardItem } from "@/components/admin/AdminCardTable";
 
-export const metadata = { title: "All Cards — Admin — Have Tech" };
+export const metadata = { title: "Riwayat Kartu — Admin — Have Tech" };
 
 export default async function AdminCardsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  if (session.user.role !== "admin") redirect("/");
+  if (session.user.role !== "admin") redirect("/login?callbackUrl=/admin");
 
-  const allCards = await db.query.cards.findMany({
+  const handleSignOut = async () => {
+    "use server";
+    await signOut({ redirectTo: "/login?callbackUrl=/admin" });
+  };
+
+  const allCardsDb = await db.query.cards.findMany({
     orderBy: [desc(cards.createdAt)],
     with: {
       business: {
@@ -21,70 +28,47 @@ export default async function AdminCardsPage() {
     },
   });
 
+  const cardsList: CardItem[] = allCardsDb.map((c) => ({
+    id: c.id,
+    publicToken: c.publicToken,
+    status: c.status,
+    reviewUrl: c.reviewUrl,
+    createdAt: c.createdAt,
+    activatedAt: c.activatedAt,
+    businessName: c.business?.name ?? null,
+    ownerEmail: c.business?.owner?.email ?? null,
+  }));
+
   return (
-    <div className="min-h-screen bg-canvas text-text-primary">
-      <header className="sticky top-0 z-10 border-b border-surface-2 bg-canvas/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/admin" className="text-sm text-text-secondary hover:text-text-primary transition">
-            ← Admin
-          </Link>
-          <span className="text-sm font-bold tracking-widest text-gold">HAVE TECH</span>
-          <a
-            href="/api/admin/cards/export"
-            className="text-xs text-gold hover:underline"
-          >
-            Export CSV
-          </a>
-        </div>
-      </header>
+    <AdminSidebarLayout userEmail={session.user.email ?? "admin@havetech.id"} onSignOut={handleSignOut}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight">Riwayat & Daftar Seluruh Kartu</h1>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Total {cardsList.length} kartu terdaftar. Kelola detail, status, dan salin URL / QR Code.
+            </p>
+          </div>
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <h1 className="text-2xl font-extrabold tracking-tight mb-6">
-          All Cards ({allCards.length})
-        </h1>
-
-        <div className="rounded-xl border border-surface-2 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-surface-2 bg-surface-1">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">Token</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">Business</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary hidden md:table-cell">Owner</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary hidden lg:table-cell">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-2">
-              {allCards.map((card) => (
-                <tr key={card.id} className="hover:bg-surface-1 transition">
-                  <td className="px-4 py-3 font-mono text-xs">
-                    <Link href={`/admin/cards/${card.id}`} className="text-gold hover:underline">
-                      {card.publicToken}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold uppercase ${
-                      card.status === "ACTIVE" ? "text-gold" :
-                      card.status === "SUSPENDED" ? "text-destructive" : "text-text-secondary"
-                    }`}>
-                      {card.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">
-                    {card.business?.name ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary text-xs hidden md:table-cell truncate max-w-[180px]">
-                    {card.business?.owner?.email ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary text-xs hidden lg:table-cell">
-                    {card.createdAt.toLocaleDateString("id-ID")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="flex gap-2 mt-3 sm:mt-0">
+            <Link
+              href="/admin/generate"
+              className="rounded-lg bg-gold px-3.5 py-2 text-xs font-semibold text-canvas transition hover:bg-gold-hover shadow-sm"
+            >
+              + Tambah Kartu
+            </Link>
+            <a
+              href="/api/admin/cards/export"
+              className="rounded-lg border border-surface-2 bg-surface-1 px-3.5 py-2 text-xs font-semibold text-text-primary transition hover:bg-surface-2"
+            >
+              Export CSV ↓
+            </a>
+          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Interactive Cards Table */}
+        <AdminCardTable cards={cardsList} />
+      </div>
+    </AdminSidebarLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { db } from "@/db";
 import { cards, businesses, auditLogs, tapLogs } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -10,6 +10,7 @@ import { getCardAnalytics } from "@/lib/analytics";
 import { validateReviewUrl } from "@/lib/card-utils";
 import EditUrlForm from "@/components/EditUrlForm";
 import CopyButton from "@/components/CopyButton";
+import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -20,6 +21,11 @@ export default async function AdminCardDetailPage(props: PageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "admin") redirect("/login?callbackUrl=/admin");
+
+  const handleSignOut = async () => {
+    "use server";
+    await signOut({ redirectTo: "/login?callbackUrl=/admin" });
+  };
 
   const card = await db.query.cards.findFirst({
     where: eq(cards.id, id),
@@ -102,21 +108,19 @@ export default async function AdminCardDetailPage(props: PageProps) {
     const s = await auth();
     if (!s?.user?.id || s.user.role !== "admin") return;
     await db.delete(cards).where(eq(cards.id, id));
-    redirect("/admin");
+    redirect("/admin/cards");
   };
 
   return (
-    <div className="min-h-screen bg-canvas text-text-primary selection:bg-gold selection:text-canvas">
-      <header className="sticky top-0 z-10 border-b border-surface-2 bg-canvas/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/admin" className="text-xs font-semibold text-text-secondary hover:text-text-primary transition">
-            ← Kembali ke Dashboard Admin
+    <AdminSidebarLayout userEmail={session.user.email ?? "admin@havetech.id"} onSignOut={handleSignOut}>
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <Link href="/admin/cards" className="text-xs font-semibold text-text-secondary hover:text-text-primary transition">
+            ← Kembali ke Riwayat Kartu
           </Link>
-          <span className="text-xs font-extrabold tracking-widest text-gold uppercase">HAVE TECH</span>
+          <span className="font-mono text-xs font-bold text-gold">TOKEN: {card.publicToken}</span>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-8 flex flex-col gap-8">
         {/* Digital Twin Card Visual */}
         <div className="flex justify-center py-2">
           <DigitalTwin
@@ -162,7 +166,7 @@ export default async function AdminCardDetailPage(props: PageProps) {
         {/* Tap Analytics */}
         <div className="rounded-xl border border-surface-2 bg-surface-1 p-5 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-widest text-text-secondary mb-4">Tap Analytics Counter</p>
-          <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             {[
               { label: "Total Taps", value: analytics.totalTaps },
               { label: "Hari Ini", value: analytics.todayTaps },
@@ -254,7 +258,7 @@ export default async function AdminCardDetailPage(props: PageProps) {
             )}
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminSidebarLayout>
   );
 }

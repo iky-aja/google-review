@@ -1,27 +1,35 @@
 import { auth, signOut } from "@/auth";
 import { db } from "@/db";
-import { cards } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { cards, tapLogs } from "@/db/schema";
+import { desc, count } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import GenerateCardsForm from "@/components/admin/GenerateCardsForm";
+import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import AdminCardTable, { CardItem } from "@/components/admin/AdminCardTable";
 
-export const metadata = { title: "Admin Portal — Have Tech" };
+export const metadata = { title: "Beranda Overview — Admin — Have Tech" };
 
 export default async function AdminPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "admin") redirect("/login?callbackUrl=/admin");
 
-  const allCardsDb = await db.query.cards.findMany({
-    orderBy: [desc(cards.createdAt)],
-    with: {
-      business: {
-        with: { owner: true },
+  const handleSignOut = async () => {
+    "use server";
+    await signOut({ redirectTo: "/login?callbackUrl=/admin" });
+  };
+
+  const [allCardsDb, totalTapCount] = await Promise.all([
+    db.query.cards.findMany({
+      orderBy: [desc(cards.createdAt)],
+      with: {
+        business: {
+          with: { owner: true },
+        },
       },
-    },
-  });
+    }),
+    db.select({ value: count() }).from(tapLogs),
+  ]);
 
   const cardsList: CardItem[] = allCardsDb.map((c) => ({
     id: c.id,
@@ -38,94 +46,82 @@ export default async function AdminPage() {
   const activeCards = cardsList.filter((c) => c.status === "ACTIVE").length;
   const unassignedCards = cardsList.filter((c) => c.status === "UNASSIGNED").length;
   const suspendedCards = cardsList.filter((c) => c.status === "SUSPENDED").length;
+  const totalTaps = Number(totalTapCount[0]?.value ?? 0);
 
   return (
-    <div className="min-h-screen bg-canvas text-text-primary selection:bg-gold selection:text-canvas">
-      {/* Admin Header */}
-      <header className="sticky top-0 z-20 border-b border-surface-2 bg-canvas/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-extrabold tracking-widest text-gold">HAVE TECH</span>
-            <span className="rounded bg-gold/10 px-2 py-0.5 text-[10px] font-bold text-gold uppercase tracking-wider">
-              Admin Portal
-            </span>
-          </div>
-          <nav className="flex items-center gap-6 text-xs">
-            <Link href="/admin" className="font-bold text-text-primary">Dashboard</Link>
-            <a href="/api/admin/cards/export" className="text-gold font-semibold hover:underline">
-              Export CSV ↓
-            </a>
-            <form
-              action={async () => {
-                "use server";
-                await signOut({ redirectTo: "/login?callbackUrl=/admin" });
-              }}
-            >
-              <button
-                type="submit"
-                className="text-destructive hover:underline font-semibold cursor-pointer"
-              >
-                Keluar
-              </button>
-            </form>
-          </nav>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8 flex flex-col gap-8">
-        {/* Overview Stats */}
-        <section>
-          <div className="mb-4">
-            <h1 className="text-2xl font-extrabold tracking-tight">Admin Overview</h1>
-            <p className="text-xs text-text-secondary mt-1">
-              Pusat pengelolaan batch kartu fisik NFC/QR Code, status klaim, dan destination review link.
+    <AdminSidebarLayout userEmail={session.user.email ?? "admin@havetech.id"} onSignOut={handleSignOut}>
+      <div className="flex flex-col gap-8">
+        {/* Header Title */}
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight">Beranda Overview</h1>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Dashboard analitik sistem & pengelolaan status kartu pintar fisik Have Tech.
             </p>
           </div>
+          <div className="flex gap-2 mt-3 sm:mt-0">
+            <Link
+              href="/admin/generate"
+              className="rounded-lg bg-gold px-3.5 py-2 text-xs font-semibold text-canvas transition hover:bg-gold-hover shadow-sm"
+            >
+              + Tambah Kartu Baru
+            </Link>
+            <a
+              href="/api/admin/cards/export"
+              className="rounded-lg border border-surface-2 bg-surface-1 px-3.5 py-2 text-xs font-semibold text-text-primary transition hover:bg-surface-2"
+            >
+              Export CSV ↓
+            </a>
+          </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[
-              { label: "Total Kartu", value: totalCards, bg: "border-surface-2" },
-              { label: "Active", value: activeCards, bg: "border-gold/30 text-gold" },
-              { label: "Unassigned", value: unassignedCards, bg: "border-surface-2" },
-              { label: "Suspended", value: suspendedCards, bg: "border-destructive/30 text-destructive" },
-            ].map(({ label, value, bg }) => (
-              <div key={label} className={`rounded-xl border bg-surface-1 px-5 py-4 shadow-sm ${bg}`}>
-                <p className="text-[11px] text-text-secondary uppercase tracking-wider font-semibold">{label}</p>
-                <p className="mt-1 text-3xl font-extrabold tabular-nums">{value}</p>
-              </div>
-            ))}
+        {/* Primary Metrics Grid */}
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <div className="rounded-xl border border-surface-2 bg-surface-1 p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">Total Kartu</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums">{totalCards}</p>
+            <span className="text-[10px] text-text-secondary mt-1 block">Tersimpan di DB</span>
+          </div>
+
+          <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gold">Kartu Active</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-gold">{activeCards}</p>
+            <span className="text-[10px] text-gold/80 mt-1 block">Sudah dihubungkan</span>
+          </div>
+
+          <div className="rounded-xl border border-surface-2 bg-surface-1 p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">Unassigned</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums">{unassignedCards}</p>
+            <span className="text-[10px] text-text-secondary mt-1 block">Siap diaktivasi</span>
+          </div>
+
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-destructive">Suspended</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-destructive">{suspendedCards}</p>
+            <span className="text-[10px] text-destructive/80 mt-1 block">Ditangguhkan</span>
+          </div>
+
+          <div className="col-span-2 lg:col-span-1 rounded-xl border border-surface-2 bg-surface-1 p-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">Total Tap System</p>
+            <p className="mt-1 text-2xl font-extrabold tabular-nums text-text-primary">{totalTaps.toLocaleString("id-ID")}</p>
+            <span className="text-[10px] text-text-secondary mt-1 block">Akumulasi HTTP 302</span>
           </div>
         </section>
 
-        {/* Batch Card Generator */}
-        <section className="rounded-xl border border-surface-2 bg-surface-1 p-6 shadow-md">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-gold mb-3">
-            + Batch Card Generator
-          </h2>
-          <p className="text-xs text-text-secondary mb-4">
-            Generate N kartu baru dengan public token acak (8 karakter aman kriptografis).
-          </p>
-          <GenerateCardsForm />
-        </section>
-
-        {/* Interactive Cards Table with Search & Filter */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
+        {/* Interactive Cards Table with Search & Filter Tabs */}
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-widest text-text-secondary">
-              Pusat Pengelolaan Kartu (CRUD)
+              Kelola Kartu & Quick Actions
             </h2>
-            <span className="text-xs text-text-secondary font-mono">
-              Total {filteredCardsCount(cardsList)} kartu terdaftar
-            </span>
+            <Link href="/admin/cards" className="text-xs font-semibold text-gold hover:underline">
+              Lihat Semua Kartu →
+            </Link>
           </div>
 
           <AdminCardTable cards={cardsList} />
         </section>
-      </main>
-    </div>
+      </div>
+    </AdminSidebarLayout>
   );
-}
-
-function filteredCardsCount(cards: CardItem[]) {
-  return cards.length;
 }
