@@ -26,6 +26,10 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const getDynamicAppUrl = () => {
+    // Prioritize explicit prod URL from env (set both locally and on Vercel)
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+    }
     if (typeof window !== "undefined") {
       return window.location.origin;
     }
