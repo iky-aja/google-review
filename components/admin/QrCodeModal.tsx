@@ -14,13 +14,10 @@ export default function QrCodeModal({ publicToken, isOpen, onClose }: QrCodeModa
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedNdef, setCopiedNdef] = useState(false);
 
-  const [appUrl, setAppUrl] = useState(
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://havetech.web.id"
-  );
+  const [appUrl, setAppUrl] = useState("https://google-review-one.vercel.app");
 
   useEffect(() => {
-    // Only fall back to window.location if no env var is set
-    if (!process.env.NEXT_PUBLIC_APP_URL && typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       setAppUrl(window.location.origin);
     }
   }, []);
