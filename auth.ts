@@ -7,6 +7,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -68,16 +69,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!existing) {
-          await db.insert(users).values({
-            email: user.email,
-            name: name,
-            googleId,
-            role: "owner",
-          });
-        } else if (!existing.googleId) {
-          await db.update(users)
-            .set({ googleId, updatedAt: new Date() })
-            .where(eq(users.email, user.email));
+          const [inserted] = await db
+            .insert(users)
+            .values({
+              email: user.email,
+              name: name,
+              googleId,
+              role: "owner",
+            })
+            .returning();
+          if (inserted) {
+            user.id = inserted.id;
+            (user as { role?: string }).role = "owner";
+          }
+        } else {
+          user.id = existing.id;
+          (user as { role?: string }).role = existing.role;
+
+          if (!existing.googleId) {
+            await db
+              .update(users)
+              .set({ googleId, updatedAt: new Date() })
+              .where(eq(users.email, user.email));
+          }
         }
         return true;
       } catch (err) {
@@ -87,15 +101,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user, account }) {
-      // On initial sign-in via Credentials, user object is returned from authorize()
-      if (account?.provider === "credentials" && user) {
+      // On initial sign-in via Credentials or Google, populate from user object directly
+      if (user?.id) {
         token.id = user.id;
-        token.role = (user as { role?: string }).role ?? "admin";
+        token.role = (user as { role?: string }).role ?? "owner";
         return token;
       }
 
-      // On initial sign-in via Google, look up DB record
-      if (account?.provider === "google" && token.email) {
+      // On subsequent calls, if token.id is missing, look up DB record
+      if (!token.id && token.email) {
         try {
           const dbUser = await db.query.users.findFirst({
             where: eq(users.email, token.email),
@@ -117,6 +131,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = (token.role as "owner" | "admin") ?? "owner";
       }
       return session;
+    },
+
+    async redirect({ url, baseUrl }) {
+      // Always allow relative paths (e.g. /c/rjDva9cC)
+      if (url.startsWith("/")) {
+        return `${baseUrl.replace(/\/$/, "")}${url}`;
+      }
+      // Allow exact origin matches
+      try {
+        const targetUrl = new URL(url);
+        if (targetUrl.origin === baseUrl.replace(/\/$/, "")) {
+          return url;
+        }
+      } catch {
+        // invalid url, fallback below
+      }
+      return baseUrl;
     },
   },
   pages: { signIn: "/login", error: "/login" },

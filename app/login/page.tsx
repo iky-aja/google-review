@@ -50,7 +50,9 @@ export default async function LoginPage(props: LoginPageProps) {
           <form
             action={async () => {
               "use server";
-              await signIn("google", { redirectTo: callbackUrl });
+              const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://google-review-one.vercel.app").replace(/\/$/, "");
+              const fullCallback = callbackUrl.startsWith("http") ? callbackUrl : `${baseUrl}${callbackUrl}`;
+              await signIn("google", { redirectTo: fullCallback });
             }}
             className="mt-8"
           >

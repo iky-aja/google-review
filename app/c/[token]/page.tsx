@@ -83,7 +83,8 @@ export default async function CardGatewayPage(props: PageProps) {
   // Server Action for Google Sign-In
   const handleGoogleSignIn = async () => {
     "use server";
-    await signIn("google", { redirectTo: `/c/${token}` });
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://google-review-one.vercel.app").replace(/\/$/, "");
+    await signIn("google", { redirectTo: `${baseUrl}/c/${token}` });
   };
 
   // Server Action to perform the atomic claim
