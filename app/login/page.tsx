@@ -1,5 +1,6 @@
 import { signIn } from "@/auth";
 import AdminLoginForm from "@/components/AdminLoginForm";
+import Link from "next/link";
 
 interface LoginPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
@@ -50,9 +51,7 @@ export default async function LoginPage(props: LoginPageProps) {
           <form
             action={async () => {
               "use server";
-              const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://google-review-one.vercel.app").replace(/\/$/, "");
-              const fullCallback = callbackUrl.startsWith("http") ? callbackUrl : `${baseUrl}${callbackUrl}`;
-              await signIn("google", { redirectTo: fullCallback });
+              await signIn("google", { redirectTo: callbackUrl });
             }}
             className="mt-8"
           >
@@ -103,9 +102,9 @@ export default async function LoginPage(props: LoginPageProps) {
 
       <p className="mt-6 text-xs text-text-secondary">
         Bukan admin?{" "}
-        <a href="/" className="text-gold hover:underline">
+        <Link href="/" className="text-gold hover:underline">
           Kembali ke beranda
-        </a>
+        </Link>
       </p>
     </div>
   );

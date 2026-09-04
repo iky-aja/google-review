@@ -2,6 +2,7 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import GenerateCardsForm from "@/components/admin/GenerateCardsForm";
+import Link from "next/link";
 
 export const metadata = { title: "Tambah Produk (Batch) — Admin — Have Tech" };
 
@@ -43,7 +44,7 @@ export default async function AdminGeneratePage() {
               <strong className="text-text-primary">Generate Batch:</strong> Tentukan jumlah kartu (misal: 15 kartu) lalu klik tombol Generate.
             </li>
             <li>
-              <strong className="text-text-primary">Export CSV / NDEF:</strong> Buka menu <a href="/admin/cards" className="text-gold underline">Riwayat Kartu</a> dan klik <strong className="text-gold">Export CSV</strong>.
+              <strong className="text-text-primary">Export CSV / NDEF:</strong> Buka menu <Link href="/admin/cards" className="text-gold underline">Riwayat Kartu</Link> dan klik <strong className="text-gold">Export CSV</strong>.
             </li>
             <li>
               <strong className="text-text-primary">Program NFC & Cetak QR:</strong> Suntikkan URL NDEF ke chip NFC menggunakan aplikasi <em>NFC Tools</em> dan cetak QR Code pada fisik kartu.

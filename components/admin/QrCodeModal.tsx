@@ -14,13 +14,9 @@ export default function QrCodeModal({ publicToken, isOpen, onClose }: QrCodeModa
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedNdef, setCopiedNdef] = useState(false);
 
-  const [appUrl, setAppUrl] = useState("https://google-review-one.vercel.app");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAppUrl(window.location.origin);
-    }
-  }, []);
+  const [appUrl] = useState(() =>
+    typeof window !== "undefined" ? window.location.origin : ""
+  );
 
   const cardUrl = `${appUrl}/c/${publicToken}`;
 

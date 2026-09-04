@@ -32,7 +32,7 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
     if (process.env.NEXT_PUBLIC_APP_URL) {
       return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
     }
-    return "https://google-review-one.vercel.app";
+    return "";
   };
 
   const filteredCards = cards.filter((card) => {
