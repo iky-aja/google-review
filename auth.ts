@@ -81,8 +81,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         return true;
       } catch (err) {
-        console.error("[auth] signIn error:", err);
-        return false;
+        console.error("[auth] signIn DB sync error (continuing auth):", err);
+        return true;
       }
     },
 
@@ -119,5 +119,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  pages: { signIn: "/login" },
+  pages: { signIn: "/login", error: "/login" },
 });
