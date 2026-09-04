@@ -193,12 +193,8 @@ export default async function CardGatewayPage(props: PageProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas text-text-primary px-6 py-12">
-      <header className="fixed top-0 left-0 w-full h-14 flex items-center justify-center bg-canvas/90 backdrop-blur-sm border-b border-surface-2/40 z-10">
-        <span className="text-sm font-bold tracking-widest text-gold">HAVE TECH</span>
-      </header>
-
-      <main className="w-full pt-12">
+    <div className="flex min-h-screen flex-col bg-canvas text-text-primary">
+      <main className="flex-1 flex items-center justify-center px-6 py-12">
         <ActivationWizard
           token={token}
           userEmail={session?.user?.email ?? undefined}
@@ -206,6 +202,11 @@ export default async function CardGatewayPage(props: PageProps) {
           googleSignInAction={handleGoogleSignIn}
         />
       </main>
+
+      <footer className="w-full border-t border-surface-2/40 py-4 text-center">
+        <span className="text-xs font-bold tracking-widest text-gold">HAVE TECH</span>
+        <p className="text-[10px] text-text-secondary mt-1">Smart NFC Review Card Platform</p>
+      </footer>
     </div>
   );
 }
