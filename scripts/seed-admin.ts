@@ -4,11 +4,16 @@ import postgres from "postgres";
 import * as schema from "../db/schema";
 import { eq } from "drizzle-orm";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@havetech.id";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_NAME = "Admin Have Tech";
 
 async function main() {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+    console.error("❌ ADMIN_EMAIL dan ADMIN_PASSWORD harus diatur di environment variable (.env / .env.local)");
+    process.exit(1);
+  }
+
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     console.error("❌ DATABASE_URL tidak ditemukan");

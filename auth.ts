@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { checkLoginRateLimit } from "@/lib/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -22,8 +23,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const email = credentials.email as string;
+        const email = (credentials.email as string).trim().toLowerCase();
         const password = credentials.password as string;
+
+        // Rate Limit Protection: Max 5 attempts per 15 minutes per email address
+        const rateLimit = checkLoginRateLimit(email, 5, 15 * 60 * 1000);
+        if (!rateLimit.success) {
+          console.warn(`[auth] Login rate limit exceeded for email: ${email}`);
+          return null;
+        }
 
         try {
           const user = await db.query.users.findFirst({
@@ -49,6 +57,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production" ? "__Secure-authjs.session-token" : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ user, account }) {
