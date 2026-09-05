@@ -19,9 +19,31 @@ interface AdminCardTableProps {
   cards: CardItem[];
 }
 
+const PAGE_SIZE = 10;
+
+function getPageNumbers(current: number, total: number): (number | string)[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
 export default function AdminCardTable({ cards }: AdminCardTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
   const [selectedQrToken, setSelectedQrToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -35,6 +57,41 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
     return "";
   };
 
+  // Handlers that reset page to 1 on filter changes
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handleDateFromChange = (val: string) => {
+    setDateFrom(val);
+    setCurrentPage(1);
+  };
+
+  const handleDateToChange = (val: string) => {
+    setDateTo(val);
+    setCurrentPage(1);
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setStatusFilter("ALL");
+    setDateFrom("");
+    setDateTo("");
+    setCurrentPage(1);
+  };
+
+  // Date validation check
+  const isDateInvalid = Boolean(
+    dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)
+  );
+
+  // Filter Pipeline: Search -> Status -> Date Range
   const filteredCards = cards.filter((card) => {
     const matchSearch =
       card.publicToken.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,8 +100,30 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
 
     const matchStatus = statusFilter === "ALL" || card.status === statusFilter;
 
-    return matchSearch && matchStatus;
+    let matchDate = true;
+    if (isDateInvalid) {
+      matchDate = false;
+    } else if (dateFrom || dateTo) {
+      const cardDate = new Date(card.createdAt);
+      if (dateFrom) {
+        const fromBoundary = new Date(dateFrom + "T00:00:00");
+        if (cardDate < fromBoundary) matchDate = false;
+      }
+      if (dateTo) {
+        const toBoundary = new Date(dateTo + "T23:59:59.999");
+        if (cardDate > toBoundary) matchDate = false;
+      }
+    }
+
+    return matchSearch && matchStatus && matchDate;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredCards.length / PAGE_SIZE);
+  const activePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const startIndex = (activePage - 1) * PAGE_SIZE;
+  const endIndex = startIndex + PAGE_SIZE;
+  const displayedCards = filteredCards.slice(startIndex, endIndex);
 
   const copyUrl = (token: string) => {
     const url = `${getDynamicAppUrl()}/c/${token}`;
@@ -56,47 +135,102 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
   return (
     <div className="flex flex-col gap-4 w-full min-w-0">
       {/* Search & Filter Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-surface-1 p-4 rounded-xl border border-surface-2 shadow-sm">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Cari Token, Bisnis, atau Email Owner..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-10 rounded-lg bg-surface-2 px-3.5 pl-9 text-xs text-text-primary placeholder:text-text-secondary border border-transparent focus:outline-none focus:border-gold transition"
-          />
-          <svg className="absolute left-3 top-3 h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      <div className="flex flex-col gap-3 bg-surface-1 p-4 rounded-xl border border-surface-2 shadow-sm">
+        {/* Top Row: Search & Status Tabs */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Cari Token, Bisnis, atau Email Owner..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full h-10 rounded-lg bg-surface-2 px-3.5 pl-9 text-xs text-text-primary placeholder:text-text-secondary border border-transparent focus:outline-none focus:border-gold transition"
+            />
+            <svg className="absolute left-3 top-3 h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg overflow-x-auto max-w-full">
+            {["ALL", "UNASSIGNED", "ACTIVE", "SUSPENDED", "ARCHIVED"].map((st) => (
+              <button
+                key={st}
+                onClick={() => handleStatusChange(st)}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition cursor-pointer whitespace-nowrap ${
+                  statusFilter === st
+                    ? "bg-canvas text-gold shadow-sm font-bold"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-lg overflow-x-auto max-w-full">
-          {["ALL", "UNASSIGNED", "ACTIVE", "SUSPENDED", "ARCHIVED"].map((st) => (
+        {/* Bottom Row: Date Filter & Reset */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-surface-2/60 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-text-secondary whitespace-nowrap">Dari:</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => handleDateFromChange(e.target.value)}
+                className="h-8 rounded-md bg-surface-2 px-2.5 text-xs text-text-primary border border-surface-2 focus:outline-none focus:border-gold transition cursor-pointer [color-scheme:dark]"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-text-secondary whitespace-nowrap">Sampai:</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => handleDateToChange(e.target.value)}
+                className="h-8 rounded-md bg-surface-2 px-2.5 text-xs text-text-primary border border-surface-2 focus:outline-none focus:border-gold transition cursor-pointer [color-scheme:dark]"
+              />
+            </div>
+          </div>
+
+          {/* Subtle Reset Action */}
+          {(search || statusFilter !== "ALL" || dateFrom || dateTo) && (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition cursor-pointer whitespace-nowrap ${
-                statusFilter === st
-                  ? "bg-canvas text-gold shadow-sm font-bold"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
+              onClick={resetFilters}
+              className="text-[11px] font-semibold text-gold hover:underline cursor-pointer flex items-center gap-1 self-end sm:self-auto"
             >
-              {st}
+              <span>↺ Reset Filter</span>
             </button>
-          ))}
+          )}
         </div>
+
+        {/* Date Validation Notice */}
+        {isDateInvalid && (
+          <p className="text-[11px] text-destructive font-medium pt-1">
+            ⚠️ Tanggal &quot;Dari&quot; tidak boleh lebih besar dari &quot;Sampai&quot;.
+          </p>
+        )}
       </div>
 
       {/* MOBILE VIEW (< md): Card List Layout */}
       <div className="flex flex-col gap-3 md:hidden">
         {filteredCards.length === 0 ? (
-          <div className="rounded-xl border border-surface-2 bg-surface-1 p-8 text-center text-xs text-text-secondary">
-            Tidak ada kartu yang cocok dengan pencarian / filter.
+          <div className="rounded-xl border border-surface-2 bg-surface-1 p-8 text-center flex flex-col items-center justify-center gap-3">
+            <p className="text-xs text-text-secondary font-medium">
+              Tidak ada kartu yang sesuai dengan filter.
+            </p>
+            {(search || statusFilter !== "ALL" || dateFrom || dateTo) && (
+              <button
+                onClick={resetFilters}
+                className="px-3.5 py-1.5 bg-surface-2 hover:bg-surface-2/80 text-gold rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                Reset Filter
+              </button>
+            )}
           </div>
         ) : (
-          filteredCards.map((card) => (
+          displayedCards.map((card) => (
             <div key={card.id} className="rounded-xl border border-surface-2 bg-surface-1 p-4 flex flex-col gap-3 shadow-sm">
               {/* Top Row: Token & Status */}
               <div className="flex items-center justify-between">
@@ -190,12 +324,24 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
             <tbody className="divide-y divide-surface-2">
               {filteredCards.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-xs text-text-secondary">
-                    Tidak ada kartu yang cocok dengan pencarian / filter.
+                  <td colSpan={5} className="px-4 py-10 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <p className="text-xs text-text-secondary font-medium">
+                        Tidak ada kartu yang cocok dengan filter.
+                      </p>
+                      {(search || statusFilter !== "ALL" || dateFrom || dateTo) && (
+                        <button
+                          onClick={resetFilters}
+                          className="px-3.5 py-1.5 bg-surface-2 hover:bg-surface-2/80 text-gold rounded-lg text-xs font-semibold transition cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
-                filteredCards.map((card) => (
+                displayedCards.map((card) => (
                   <tr key={card.id} className="hover:bg-surface-2/40 transition">
                     <td className="px-4 py-3 font-mono text-xs font-bold text-text-primary">
                       <Link href={`/admin/cards/${card.id}`} className="text-gold hover:underline">
@@ -274,6 +420,68 @@ export default function AdminCardTable({ cards }: AdminCardTableProps) {
           </table>
         </div>
       </div>
+
+      {/* PAGINATION TOOLBAR (Hidden if total cards <= 10) */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl border border-surface-2 bg-surface-1 text-xs shadow-sm">
+          <span className="text-text-secondary text-[11px]">
+            Menampilkan <strong className="text-text-primary">{startIndex + 1}</strong>–
+            <strong className="text-text-primary">{Math.min(endIndex, filteredCards.length)}</strong> dari{" "}
+            <strong className="text-gold">{filteredCards.length}</strong> kartu
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            {/* Previous Page Button */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={activePage === 1}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                activePage === 1
+                  ? "opacity-40 cursor-not-allowed text-text-secondary bg-surface-2"
+                  : "bg-surface-2 text-text-primary hover:text-gold hover:bg-surface-2/80"
+              }`}
+            >
+              ← Previous
+            </button>
+
+            {/* Compact Page Number Buttons */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers(activePage, totalPages).map((num, idx) =>
+                typeof num === "number" ? (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentPage(num)}
+                    className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      activePage === num
+                        ? "bg-gold text-canvas font-bold shadow-sm"
+                        : "bg-surface-2 text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ) : (
+                  <span key={idx} className="px-1 text-text-secondary font-mono">
+                    {num}
+                  </span>
+                )
+              )}
+            </div>
+
+            {/* Next Page Button */}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={activePage === totalPages}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                activePage === totalPages
+                  ? "opacity-40 cursor-not-allowed text-text-secondary bg-surface-2"
+                  : "bg-surface-2 text-text-primary hover:text-gold hover:bg-surface-2/80"
+              }`}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* QR Code Provisioning Modal */}
       {selectedQrToken && (

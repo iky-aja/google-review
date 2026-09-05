@@ -146,7 +146,7 @@ CREATE TABLE audit_logs (
 
 ### 4. Admin Management Portal (`/admin`)
 - **Batch Generator (`/admin/generate`)**: Memuat token acak aman secara kriptografis (`crypto.randomBytes`).
-- **Tabel Monitoring (`/admin/cards`)**: Dilengkapi pencarian token/bisnis, filter tab status, dan *Quick Action Modals*.
+- **Tabel Monitoring & Riwayat (`/admin/cards`)**: Memiliki fitur pencarian multi-field (Token, Bisnis, Owner), Filter Tab Status (ALL, UNASSIGNED, ACTIVE, SUSPENDED, ARCHIVED), Filter Rentang Tanggal inklusif (Dari & Sampai dengan validasi), serta Pagination responsif (10 items/page).
 - **Export Data CSV (`/api/admin/cards/export`)**: Mengekspor daftar kartu dan URL untuk keperluan pemrograman NFC & pencetakan fisik.
 - **QR Artwork Generator HD (`lib/qr/`)**: Otomatis mendeteksi slot transparan pada master template PNG (`alpha < 30`), mengomposisikan QR Code dinamis dengan gateway URL publik, dan menyajikan preview serta ekspor artwork PNG HD beresolusi tinggi.
 
