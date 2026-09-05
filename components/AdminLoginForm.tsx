@@ -45,7 +45,7 @@ export default function AdminLoginForm({ callbackUrl }: AdminLoginFormProps) {
           type="email"
           required
           autoComplete="email"
-          placeholder="admin@havetech.id"
+          placeholder="Masukan Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={loading}
@@ -66,9 +66,8 @@ export default function AdminLoginForm({ callbackUrl }: AdminLoginFormProps) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={loading}
-          className={`h-12 w-full rounded-lg bg-surface-2 px-4 text-sm text-text-primary placeholder:text-text-secondary border-b-2 ${
-            error ? "border-destructive" : "border-transparent"
-          } focus:outline-none focus:border-gold transition disabled:opacity-50`}
+          className={`h-12 w-full rounded-lg bg-surface-2 px-4 text-sm text-text-primary placeholder:text-text-secondary border-b-2 ${error ? "border-destructive" : "border-transparent"
+            } focus:outline-none focus:border-gold transition disabled:opacity-50`}
         />
         {error && (
           <p className="text-xs text-destructive mt-0.5">{error}</p>
